@@ -6,33 +6,32 @@ class Program
 {
     static void Main(string[] args)
     {
-        string connectionString = "Data Source=tesla_rental.db";
+        string connectionString = "Data Source=tesla_store.db";
 
         try
         {
-            var rentalController = new TeslaRentalController(connectionString);
+            var teslaCtrl = new TeslaCtrl(connectionString);
+            var clientCtrl = new ClientCtrl(connectionString);
+            var rentalCtrl = new RentalCtrl(connectionString);
 
             while (true)
             {
-                Console.WriteLine("Choose action: 'add_car', 'add_client', 'rent', 'print_cars', 'print_clients', 'stop'.");
+                Console.WriteLine("Choose action: 'print', 'print_clients', 'rent', 'print_rentals', or 'stop'.");
                 var userCommand = Console.ReadLine();
 
                 switch (userCommand)
                 {
-                    case "add_car":
-                        rentalController.AddCar();
-                        break;
-                    case "add_client":
-                        rentalController.AddClient();
-                        break;
-                    case "rent":
-                        rentalController.RentCar();
-                        break;
-                    case "print_cars":
-                        rentalController.PrintCars();
+                    case "print":
+                        teslaCtrl.PrintTeslas();
                         break;
                     case "print_clients":
-                        rentalController.PrintClients();
+                        clientCtrl.PrintClients();
+                        break;
+                    case "rent":
+                        rentalCtrl.RentTesla();
+                        break;
+                    case "print_rentals":
+                        rentalCtrl.PrintRentals();
                         break;
                     case "stop":
                         return;
@@ -45,23 +44,33 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: {ex.Message}");
+            Console.WriteLine("An error occurred: " + ex.Message);
         }
     }
 
-    public class TeslaRentalController
+    public class TeslaCtrl
     {
-        private readonly string connectionString;
+        private readonly String connectionString;
 
-        public TeslaRentalController(string connectionString)
+        public TeslaCtrl(String connectionString)
         {
             this.connectionString = connectionString;
-            CreateCarsTable();
-            CreateClientsTable();
-            CreateRentalsTable();
+            CreateTeslaTable();
         }
 
-        private void CreateCarsTable()
+        public void PrintTeslas()
+        {
+            using (var reader = GetAllTeslasFromTable())
+            {
+                Console.WriteLine("Tesla List:");
+                while (reader.Read())
+                {
+                    Console.WriteLine($"Id: {reader["Id"]}, Model: {reader["Model"]}, Hourly Rate: {reader["HourlyRate"]}, Kilometer Rate: {reader["KilometerRate"]}");
+                }
+            }
+        }
+
+        private void CreateTeslaTable()
         {
             using (var connection = new SqliteConnection(connectionString))
             {
@@ -69,17 +78,68 @@ class Program
 
                 var createTableCmd = connection.CreateCommand();
                 createTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Cars (
+                    CREATE TABLE IF NOT EXISTS Teslas (
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        Modelis TEXT NOT NULL,
-                        StundasLikme REAL NOT NULL,
-                        KilometraLikme REAL NOT NULL
-                    );";
+                        Model TEXT NOT NULL,
+                        HourlyRate REAL NOT NULL,
+                        KilometerRate REAL NOT NULL
+                    );
+                ";
                 createTableCmd.ExecuteNonQuery();
+
+                var checkTableCmd = connection.CreateCommand();
+                checkTableCmd.CommandText = "SELECT COUNT(*) FROM Teslas";
+                var count = Convert.ToInt32(checkTableCmd.ExecuteScalar());
+
+                if (count == 0)
+                {
+                    var insertDefaultDataCmd = connection.CreateCommand();
+                    insertDefaultDataCmd.CommandText = @"
+                        INSERT INTO Teslas (Model, HourlyRate, KilometerRate) VALUES
+                        ('Model S', 50.0, 0.5),
+                        ('Model 3', 40.0, 0.4),
+                        ('Model X', 60.0, 0.6);
+                    ";
+                    insertDefaultDataCmd.ExecuteNonQuery();
+                }
             }
         }
 
-        private void CreateClientsTable()
+        private SqliteDataReader GetAllTeslasFromTable()
+        {
+            var connection = new SqliteConnection(connectionString);
+            connection.Open();
+
+            var selectCmd = connection.CreateCommand();
+            selectCmd.CommandText = "SELECT * FROM Teslas";
+
+            return selectCmd.ExecuteReader(System.Data.CommandBehavior.CloseConnection);
+        }
+    }
+
+    public class ClientCtrl
+    {
+        private readonly String connectionString;
+
+        public ClientCtrl(String connectionString)
+        {
+            this.connectionString = connectionString;
+            CreateClientTable();
+        }
+
+        public void PrintClients()
+        {
+            using (var reader = GetAllClientsFromTable())
+            {
+                Console.WriteLine("Client List:");
+                while (reader.Read())
+                {
+                    Console.WriteLine($"Id: {reader["Id"]}, Full Name: {reader["FullName"]}, Email: {reader["Email"]}");
+                }
+            }
+        }
+
+        private void CreateClientTable()
         {
             using (var connection = new SqliteConnection(connectionString))
             {
@@ -89,15 +149,89 @@ class Program
                 createTableCmd.CommandText = @"
                     CREATE TABLE IF NOT EXISTS Clients (
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        Vards TEXT NOT NULL,
-                        Uzvards TEXT NOT NULL,
-                        Epasts TEXT NOT NULL
-                    );";
+                        FullName TEXT NOT NULL,
+                        Email TEXT NOT NULL
+                    );
+                ";
                 createTableCmd.ExecuteNonQuery();
+
+                var checkTableCmd = connection.CreateCommand();
+                checkTableCmd.CommandText = "SELECT COUNT(*) FROM Clients";
+                var count = Convert.ToInt32(checkTableCmd.ExecuteScalar());
+
+                if (count == 0)
+                {
+                    var insertDefaultDataCmd = connection.CreateCommand();
+                    insertDefaultDataCmd.CommandText = @"
+                        INSERT INTO Clients (FullName, Email) VALUES
+                        ('Roberts Kalniņš', 'robertskalnins@outlook.com'),
+                        ('Jānis Bērziņš', 'janis.berzins@gmail.com'),
+                        ('Gvido Ozols', 'ozolsgvido@inbox.lv');
+                    ";
+                    insertDefaultDataCmd.ExecuteNonQuery();
+                }
             }
         }
 
-        private void CreateRentalsTable()
+        private SqliteDataReader GetAllClientsFromTable()
+        {
+            var connection = new SqliteConnection(connectionString);
+            connection.Open();
+
+            var selectCmd = connection.CreateCommand();
+            selectCmd.CommandText = "SELECT * FROM Clients";
+
+            return selectCmd.ExecuteReader(System.Data.CommandBehavior.CloseConnection);
+        }
+    }
+
+    public class RentalCtrl
+    {
+        private readonly String connectionString;
+
+        public RentalCtrl(String connectionString)
+        {
+            this.connectionString = connectionString;
+            CreateRentalTable();
+        }
+
+        public void RentTesla()
+        {
+            Console.WriteLine("Enter Client Id:");
+            int clientId = Convert.ToInt32(Console.ReadLine());
+
+            Console.WriteLine("Enter Tesla Id:");
+            int teslaId = Convert.ToInt32(Console.ReadLine());
+
+            Console.WriteLine("Enter Rental Start Time (-Day-Month-Year-):");
+            DateTime startTime = DateTime.Parse(Console.ReadLine());
+
+            Console.WriteLine("Enter Rental End Time (-Day-Month-Year-):");
+            DateTime endTime = DateTime.Parse(Console.ReadLine());
+
+            Console.WriteLine("Enter Kilometers Driven:");
+            double kilometers = Convert.ToDouble(Console.ReadLine());
+
+            double totalPayment = CalculatePayment(teslaId, startTime, endTime, kilometers);
+
+            SaveRental(clientId, teslaId, startTime, endTime, kilometers, totalPayment);
+
+            Console.WriteLine($"Rental registered. Total payment: {totalPayment} EUR");
+        }
+
+        public void PrintRentals()
+        {
+            using (var reader = GetAllRentalsFromTable())
+            {
+                Console.WriteLine("Rental List:");
+                while (reader.Read())
+                {
+                    Console.WriteLine($"Id: {reader["Id"]}, ClientId: {reader["ClientId"]}, TeslaId: {reader["TeslaId"]}, StartTime: {reader["StartTime"]}, EndTime: {reader["EndTime"]}, Kilometers: {reader["Kilometers"]}, TotalPayment: {reader["TotalPayment"]}");
+                }
+            }
+        }
+
+        private void CreateRentalTable()
         {
             using (var connection = new SqliteConnection(connectionString))
             {
@@ -108,165 +242,78 @@ class Program
                     CREATE TABLE IF NOT EXISTS Rentals (
                         Id INTEGER PRIMARY KEY AUTOINCREMENT,
                         ClientId INTEGER NOT NULL,
-                        CarId INTEGER NOT NULL,
-                        StartTime DATETIME NOT NULL,
-                        EndTime DATETIME NOT NULL,
-                        Distance REAL NOT NULL,
-                        TotalCost REAL NOT NULL,
+                        TeslaId INTEGER NOT NULL,
+                        StartTime TEXT NOT NULL,
+                        EndTime TEXT NOT NULL,
+                        Kilometers REAL NOT NULL,
+                        TotalPayment REAL NOT NULL,
                         FOREIGN KEY (ClientId) REFERENCES Clients(Id),
-                        FOREIGN KEY (CarId) REFERENCES Cars(Id)
-                    );";
+                        FOREIGN KEY (TeslaId) REFERENCES Teslas(Id)
+                    );
+                ";
                 createTableCmd.ExecuteNonQuery();
             }
         }
 
-        public void AddCar()
+        private void SaveRental(int clientId, int teslaId, DateTime startTime, DateTime endTime, double kilometers, double totalPayment)
         {
-            Console.WriteLine("Enter car model:");
-            string model = Console.ReadLine();
-
-            Console.WriteLine("Enter hourly rate (EUR/h):");
-            double hourlyRate = Convert.ToDouble(Console.ReadLine());
-
-            Console.WriteLine("Enter per-kilometer rate (EUR/km):");
-            double perKmRate = Convert.ToDouble(Console.ReadLine());
-
             using (var connection = new SqliteConnection(connectionString))
             {
                 connection.Open();
 
                 var insertCmd = connection.CreateCommand();
-                insertCmd.CommandText = "INSERT INTO Cars (Modelis, StundasLikme, KilometraLikme) VALUES (@model, @hourlyRate, @perKmRate)";
-                insertCmd.Parameters.AddWithValue("@model", model);
-                insertCmd.Parameters.AddWithValue("@hourlyRate", hourlyRate);
-                insertCmd.Parameters.AddWithValue("@perKmRate", perKmRate);
+                insertCmd.CommandText = @"
+                    INSERT INTO Rentals (ClientId, TeslaId, StartTime, EndTime, Kilometers, TotalPayment)
+                    VALUES (@clientId, @teslaId, @startTime, @endTime, @kilometers, @totalPayment);
+                ";
+                insertCmd.Parameters.AddWithValue("@clientId", clientId);
+                insertCmd.Parameters.AddWithValue("@teslaId", teslaId);
+                insertCmd.Parameters.AddWithValue("@startTime", startTime.ToString("yyyy-MM-dd HH:mm"));
+                insertCmd.Parameters.AddWithValue("@endTime", endTime.ToString("yyyy-MM-dd HH:mm"));
+                insertCmd.Parameters.AddWithValue("@kilometers", kilometers);
+                insertCmd.Parameters.AddWithValue("@totalPayment", totalPayment);
 
                 insertCmd.ExecuteNonQuery();
-                Console.WriteLine("Car added successfully.");
             }
         }
 
-        public void AddClient()
+        private SqliteDataReader GetAllRentalsFromTable()
         {
-            Console.WriteLine("Enter client first name:");
-            string firstName = Console.ReadLine();
+            var connection = new SqliteConnection(connectionString);
+            connection.Open();
 
-            Console.WriteLine("Enter client last name:");
-            string lastName = Console.ReadLine();
+            var selectCmd = connection.CreateCommand();
+            selectCmd.CommandText = "SELECT * FROM Rentals";
 
-            Console.WriteLine("Enter client email:");
-            string email = Console.ReadLine();
-
-            using (var connection = new SqliteConnection(connectionString))
-            {
-                connection.Open();
-
-                var insertCmd = connection.CreateCommand();
-                insertCmd.CommandText = "INSERT INTO Clients (Vards, Uzvards, Epasts) VALUES (@firstName, @lastName, @email)";
-                insertCmd.Parameters.AddWithValue("@firstName", firstName);
-                insertCmd.Parameters.AddWithValue("@lastName", lastName);
-                insertCmd.Parameters.AddWithValue("@email", email);
-
-                insertCmd.ExecuteNonQuery();
-                Console.WriteLine("Client added successfully.");
-            }
+            return selectCmd.ExecuteReader(System.Data.CommandBehavior.CloseConnection);
         }
 
-        public void RentCar()
+        private double CalculatePayment(int teslaId, DateTime startTime, DateTime endTime, double kilometers)
         {
-            Console.WriteLine("Enter client ID:");
-            int clientId = Convert.ToInt32(Console.ReadLine());
-
-            Console.WriteLine("Enter car ID:");
-            int carId = Convert.ToInt32(Console.ReadLine());
-
-            Console.WriteLine("Enter rental start time (yyyy-MM-dd HH:mm):");
-            DateTime startTime = DateTime.Parse(Console.ReadLine());
-
-            Console.WriteLine("Enter rental end time (yyyy-MM-dd HH:mm):");
-            DateTime endTime = DateTime.Parse(Console.ReadLine());
-
-            Console.WriteLine("Enter distance traveled (km):");
-            double distance = Convert.ToDouble(Console.ReadLine());
-
             using (var connection = new SqliteConnection(connectionString))
             {
                 connection.Open();
 
                 var selectCmd = connection.CreateCommand();
-                selectCmd.CommandText = "SELECT StundasLikme, KilometraLikme FROM Cars WHERE Id = @carId";
-                selectCmd.Parameters.AddWithValue("@carId", carId);
+                selectCmd.CommandText = "SELECT HourlyRate, KilometerRate FROM Teslas WHERE Id = @teslaId";
+                selectCmd.Parameters.AddWithValue("@teslaId", teslaId);
 
                 using (var reader = selectCmd.ExecuteReader())
                 {
-                    if (!reader.Read())
+                    if (reader.Read())
                     {
-                        Console.WriteLine("Car not found.");
-                        return;
+                        double hourlyRate = Convert.ToDouble(reader["HourlyRate"]);
+                        double kilometerRate = Convert.ToDouble(reader["KilometerRate"]);
+
+                        double rentalDurationHours = (endTime - startTime).TotalHours;
+                        return (rentalDurationHours * hourlyRate) + (kilometers * kilometerRate);
                     }
-
-                    double hourlyRate = reader.GetDouble(0);
-                    double perKmRate = reader.GetDouble(1);
-
-                    double rentalDurationHours = (endTime - startTime).TotalHours;
-                    double totalCost = (rentalDurationHours * hourlyRate) + (distance * perKmRate);
-
-                    var insertCmd = connection.CreateCommand();
-                    insertCmd.CommandText = @"
-                        INSERT INTO Rentals (ClientId, CarId, StartTime, EndTime, Distance, TotalCost)
-                        VALUES (@clientId, @carId, @startTime, @endTime, @distance, @totalCost);";
-                    insertCmd.Parameters.AddWithValue("@clientId", clientId);
-                    insertCmd.Parameters.AddWithValue("@carId", carId);
-                    insertCmd.Parameters.AddWithValue("@startTime", startTime);
-                    insertCmd.Parameters.AddWithValue("@endTime", endTime);
-                    insertCmd.Parameters.AddWithValue("@distance", distance);
-                    insertCmd.Parameters.AddWithValue("@totalCost", totalCost);
-
-                    insertCmd.ExecuteNonQuery();
-                    Console.WriteLine($"Rental recorded. Total cost: EUR {totalCost:F2}");
-                }
-            }
-        }
-
-        public void PrintCars()
-        {
-            using (var connection = new SqliteConnection(connectionString))
-            {
-                connection.Open();
-
-                var selectCmd = connection.CreateCommand();
-                selectCmd.CommandText = "SELECT * FROM Cars";
-
-                using (var reader = selectCmd.ExecuteReader())
-                {
-                    Console.WriteLine("Available Cars:");
-                    while (reader.Read())
+                    else
                     {
-                        Console.WriteLine($"Id: {reader["Id"]}, Model: {reader["Modelis"]}, Hourly Rate: {reader["StundasLikme"]} EUR/h, Per KM Rate: {reader["KilometraLikme"]} EUR/km");
-                    }
-                }
-            }
-        }
-
-        public void PrintClients()
-        {
-            using (var connection = new SqliteConnection(connectionString))
-            {
-                connection.Open();
-
-                var selectCmd = connection.CreateCommand();
-                selectCmd.CommandText = "SELECT * FROM Clients";
-
-                using (var reader = selectCmd.ExecuteReader())
-                {
-                    Console.WriteLine("Registered Clients:");
-                    while (reader.Read())
-                    {
-                        Console.WriteLine($"Id: {reader["Id"]}, Name: {reader["Vards"]} {reader["Uzvards"]}, Email: {reader["Epasts"]}");
+                        throw new Exception("Tesla not found.");
                     }
                 }
             }
         }
     }
-}
-```
+}```
