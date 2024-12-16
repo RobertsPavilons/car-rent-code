@@ -1,4 +1,4 @@
-```cs
+```c#
 using Microsoft.Data.Sqlite;
 using System;
 
